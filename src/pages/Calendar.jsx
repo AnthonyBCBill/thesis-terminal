@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fmp } from '../lib/api.js';
 import { useUserData } from '../lib/userdata.jsx';
+import { useWatchlistEarnings } from '../lib/upcoming.js';
 import { Card, DataTable, Loading, Err, Seg } from '../components/ui.jsx';
 import { exportRows } from '../lib/excel.js';
 import { money, num, pctRaw, tone } from '../lib/format.js';
@@ -19,6 +20,7 @@ export default function Calendar() {
   const [day, setDay] = useState(null);
   const { data: ud } = useUserData();
   const nav = useNavigate();
+  const we = useWatchlistEarnings(ud.watchlist);
 
   const from = iso(week), toD = new Date(week); toD.setDate(toD.getDate() + 4); const to = iso(toD);
   useEffect(() => {
@@ -49,6 +51,19 @@ export default function Calendar() {
         <button className="btn sm" onClick={() => { setWeek(monday(new Date())); setDay(null); }}>This week</button>
         <button className="btn sm" onClick={() => shift(1)}>Next ›</button>
       </div>
+      <Card title="Your watchlist — next earnings" sub="Every stock on your watchlist, soonest first. Add a stock to your watchlist and it appears here.">
+        {we.loading ? <Loading h={60} /> : (
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+            {we.rows.map((r) => (
+              <button key={r.symbol} className="stat" style={{ textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }} onClick={() => nav(`/c/${r.symbol}`)}>
+                <div className="mono" style={{ fontWeight: 600 }}>{r.symbol}</div>
+                <div className={r.hasDate ? '' : 'sub'} style={{ fontSize: 13 }}>{r.hasDate ? new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not scheduled (60 days)'}</div>
+                {r.hasDate && <div className="sub">EPS est {num(r.epsEstimated)}</div>}
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
       <div className="row">
         <Seg value={scope} onChange={setScope} options={[{ value: 'all', label: 'All companies' }, { value: 'watch', label: 'My watchlist' }]} />
         {scope === 'all' && (

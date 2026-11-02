@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../lib/userdata.jsx';
+import { useWatchlistEarnings } from '../lib/upcoming.js';
 import { loadPeers, peerRow } from '../lib/company.js';
 import { Card, DataTable, Loading } from '../components/ui.jsx';
 import TickerSearch from '../components/TickerSearch.jsx';
@@ -12,6 +13,7 @@ export default function Watchlist() {
   const { data, toggleWatch } = useUserData();
   const [rows, setRows] = useState(null);
   const nav = useNavigate();
+  const we = useWatchlistEarnings(data.watchlist);
   useEffect(() => {
     setRows(null);
     loadPeers(data.watchlist).then((cs) => setRows(cs.map((c) => ({ ...peerRow(c), change: c.m.changePct, next: c.m.nextEarnings }))));
@@ -21,6 +23,7 @@ export default function Watchlist() {
     ...PEER_TABLE_COLS.slice(0, 2),
     { key: 'price', label: 'Price', fmt: price },
     { key: 'change', label: 'Day', fmt: (v) => pctRaw(v, 2), cls: tone },
+    { key: 'next', label: 'Next earnings', get: (r) => we.map[r.symbol]?.date || null, fmt: (v) => v || '—' },
     ...PEER_TABLE_COLS.slice(2),
     { key: 'rm', label: '', nosort: true, fmt: (_, r) => <button className="btn sm" onClick={(e) => { e.stopPropagation(); toggleWatch(r.symbol); }}>Remove</button> },
   ];

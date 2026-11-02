@@ -26,13 +26,25 @@ function countRequest() {
   try { localStorage.setItem('thesis:usage', JSON.stringify({ d: today(), n: usageToday() + 1 })); } catch { /* ignore */ }
 }
 // Endpoints your plan doesn't include are remembered for a week so we stop spending requests on them.
-const NA_KEY = 'thesis:na';
+const NA_KEY = 'thesis:na2'; // v2: the first version mis-flagged core endpoints
 const naMap = () => { try { return JSON.parse(localStorage.getItem(NA_KEY)) || {}; } catch { return {}; } };
 const isUnavailable = (ep) => { const t = naMap()[ep]; return t && Date.now() - t < 7 * 864e5; };
 function markUnavailable(ep) { const m = naMap(); m[ep] = Date.now(); localStorage.setItem(NA_KEY, JSON.stringify(m)); }
 export const unavailableList = () => Object.keys(naMap()).filter(isUnavailable);
 export const resetUnavailable = () => localStorage.removeItem(NA_KEY);
-const PLAN_ERR = /premium|subscription|upgrade|plan|not available|special endpoint|restricted/i;
+// Only an explicit "Restricted Endpoint" means the plan lacks a feature.
+const RESTRICTED = /restricted endpoint|not available under your current subscription/i;
+// "Premium Query Parameter … limit must be between 0 and 5" means: ask for less history.
+const LIMIT_CAP = /limit'? must be between 0 and (\d+)/i;
+const RATE = /limit reach|too many requests/i;
+const maxLimit = () => +localStorage.getItem('thesis:maxlimit') || 0;
+
+function handlePlanMsg(endpoint, msg, status) {
+  if (RATE.test(msg) || status === 429) throw new ApiError('FMP request limit reached — data resumes later today/tomorrow (or upgrade your FMP plan).', 429);
+  const m = msg.match(LIMIT_CAP);
+  if (m) { localStorage.setItem('thesis:maxlimit', m[1]); return; }
+  if (RESTRICTED.test(msg)) markUnavailable(endpoint);
+}
 
 export class ApiError extends Error {
   constructor(msg, status) { super(msg); this.status = status; }
@@ -58,6 +70,8 @@ function writeCache(key, d) {
 const inflight = new Map();
 
 export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
+  const cap = maxLimit();
+  if (cap && params.limit && +params.limit > cap) params = { ...params, limit: cap };
   const qs = new URLSearchParams(params).toString();
   const key = CACHE_PREFIX + endpoint + '?' + qs;
   const ttl = TTL[endpoint] ?? TTL.default;
@@ -75,13 +89,12 @@ export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
     if (res.status === 401) throw new ApiError('Locked — enter your app password in Settings', 401);
     if (!res.ok) {
       const msg = (data && (data.error || data['Error Message'] || data.message)) || `HTTP ${res.status}`;
-      if ((res.status === 402 || res.status === 403) && PLAN_ERR.test(String(msg)) && !('limit' in params && +params.limit > 5)) markUnavailable(endpoint);
-      if (res.status === 429 || /limit reach/i.test(String(msg))) throw new ApiError('Daily FMP request limit reached — data resumes tomorrow (or upgrade your FMP plan).', 429);
+      handlePlanMsg(endpoint, String(msg), res.status);
       throw new ApiError(String(msg), res.status);
     }
     if (data && !Array.isArray(data) && data['Error Message']) {
       const msg = data['Error Message'];
-      if (PLAN_ERR.test(msg)) markUnavailable(endpoint);
+      handlePlanMsg(endpoint, msg, 402);
       throw new ApiError(msg, 402);
     }
     writeCache(key, data);
@@ -96,8 +109,9 @@ export async function fmpSafe(endpoint, params, fallback = []) {
   try { return { data: await fmp(endpoint, params), error: null }; }
   catch (e) {
     // Free plans cap history; retry once with a 5-period limit.
-    if (params?.limit && +params.limit > 5 && e.status !== 429) {
-      try { return { data: await fmp(endpoint, { ...params, limit: 5 }), error: null }; } catch { /* fall through */ }
+    const cap = maxLimit();
+    if (cap && params?.limit && +params.limit > cap && e.status !== 429) {
+      try { return { data: await fmp(endpoint, params), error: null }; } catch { /* fall through */ }
     }
     return { data: fallback, error: e.message };
   }

@@ -55,7 +55,8 @@ export function normalizePeers(raw, self) {
     if (Array.isArray(r.peersList)) list.push(...r.peersList);
     else if (r.symbol) list.push(r.symbol);
   }
-  return [...new Set(list)].filter((s) => s && s !== self).slice(0, 10);
+  // US listings only (foreign tickers like 002241.SZ aren't on most plans and aren't comparable).
+  return [...new Set(list)].filter((s) => s && s !== self && /^[A-Z]{1,5}$/.test(s)).slice(0, 10);
 }
 
 export function normalizeEstimates(raw) {

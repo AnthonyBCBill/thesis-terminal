@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useUserData } from '../lib/userdata.jsx';
+import { useWatchlistEarnings } from '../lib/upcoming.js';
 import { Card, DataTable, Loading, Err, Icon, Spinner } from '../components/ui.jsx';
 import { money, num, price, shortDate, pctRaw, tone } from '../lib/format.js';
 
@@ -29,8 +30,12 @@ export default function Dashboard() {
   };
   const [msg, alertMsg] = useState('');
 
+  // Live from the earnings calendar so newly-added watchlist stocks show immediately.
+  const we = useWatchlistEarnings(ud.watchlist);
+  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  const upcoming = we.rows.filter((r) => r.hasDate);
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const watchToday = d?.watchUpcoming?.filter((r) => r.date === d.date) || [];
+  const watchToday = upcoming.filter((r) => r.date === todayIso);
 
   return (
     <div className="grid" style={{ gap: 16 }}>
@@ -49,7 +54,7 @@ export default function Dashboard() {
           <div className="stats">
             <div className="stat"><div className="l">Companies reporting today</div><div className="v">{d.todayCount}</div><div className="s">US listings</div></div>
             <div className="stat"><div className="l">Your watchlist today</div><div className="v">{watchToday.length}</div><div className="s">{watchToday.map((r) => r.symbol).join(', ') || 'None'}</div></div>
-            <div className="stat"><div className="l">Watchlist next 14 days</div><div className="v">{d.watchUpcoming.length}</div><div className="s">{d.watchUpcoming.slice(0, 4).map((r) => r.symbol).join(', ')}</div></div>
+            <div className="stat"><div className="l">Watchlist next 60 days</div><div className="v">{upcoming.length}</div><div className="s">{upcoming.slice(0, 4).map((r) => r.symbol).join(', ')}</div></div>
             <div className="stat"><div className="l">Watchlist recent results</div><div className="v">{d.watchReported.length}</div><div className="s">{d.watchReported.filter((r) => r.epsSurprisePct > 0).length} beat EPS</div></div>
           </div>
 
@@ -66,13 +71,15 @@ export default function Dashboard() {
 
             <div className="grid" style={{ gap: 16 }}>
               <Card title="Your watchlist — upcoming earnings">
-                {d.watchUpcoming.length ? d.watchUpcoming.map((r) => (
-                  <Link key={r.symbol + r.date} to={`/c/${r.symbol}/earnings`} className="row" style={{ padding: '7px 0', borderBottom: '1px solid var(--border)', color: 'inherit' }}>
+                {we.loading ? <Loading h={60} /> : we.rows.map((r) => (
+                  <Link key={r.symbol} to={`/c/${r.symbol}`} className="row" style={{ padding: '7px 0', borderBottom: '1px solid var(--border)', color: 'inherit' }}>
                     <b className="mono" style={{ width: 60 }}>{r.symbol}</b>
-                    <span className={r.date === d.date ? 'chip blue' : 'muted'}>{r.date === d.date ? 'TODAY' : dayName(r.date)}</span>
-                    <span className="spacer" /><span className="sub">EPS est {num(r.epsEstimated)}</span>
+                    {r.hasDate
+                      ? <span className={r.date === todayIso ? 'chip blue' : 'muted'}>{r.date === todayIso ? 'TODAY' : dayName(r.date)}</span>
+                      : <span className="sub">No date in next 60 days</span>}
+                    <span className="spacer" />{r.hasDate && <span className="sub">EPS est {num(r.epsEstimated)}</span>}
                   </Link>
-                )) : <div className="empty">None of your watchlist reports in the next 14 days.</div>}
+                ))}
               </Card>
               {d.watchReported.length > 0 && (
                 <Card title="Your watchlist — latest results">
