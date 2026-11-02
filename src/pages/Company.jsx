@@ -104,6 +104,9 @@ export default function Company() {
           <button className="btn" onClick={() => exportCompany(c, peerRows, avgs)} title="Download Excel workbook"><Icon name="xls" size={14} />Excel</button>
         </div>
       </div>
+      {Object.values(c.errors).some((e) => /limit reach/i.test(String(e))) && (
+        <div className="err" style={{ marginBottom: 12 }}>You've used today's FMP data requests (free plan: 250/day). Some numbers are missing until the limit resets tomorrow — or upgrade to FMP Starter for 300 requests per minute.</div>
+      )}
       {Object.keys(c.errors).length > 0 && (
         <details className="note-box" style={{ marginBottom: 12 }}>
           <summary>Some data couldn't be loaded ({Object.keys(c.errors).length}) — usually your FMP plan doesn't include it.</summary>

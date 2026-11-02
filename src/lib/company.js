@@ -56,7 +56,7 @@ export function normalizePeers(raw, self) {
     else if (r.symbol) list.push(r.symbol);
   }
   // US listings only (foreign tickers like 002241.SZ aren't on most plans and aren't comparable).
-  return [...new Set(list)].filter((s) => s && s !== self && /^[A-Z]{1,5}$/.test(s)).slice(0, 10);
+  return [...new Set(list)].filter((s) => s && s !== self && /^[A-Z]{1,5}$/.test(s) && !/^[A-Z]{4}[FY]$/.test(s)).slice(0, 10); // drop OTC foreign lines (e.g. SSNLF, XIACF)
 }
 
 export function normalizeEstimates(raw) {

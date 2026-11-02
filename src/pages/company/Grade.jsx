@@ -34,6 +34,7 @@ export default function Grade({ c, m, peerRows, avgs, peerLoading }) {
   const stale = saved && m.lastReport && saved.basedOn && m.lastReport.date > saved.basedOn;
 
   const run = async () => {
+    if (!m.price) { setErr("Price data didn't load (likely today's FMP request limit), so a fair grade isn't possible right now. Try again once data loads."); return; }
     setBusy(true); setErr(''); setStream('');
     let transcript = null;
     setStatus('Checking for the latest earnings call transcript…');
