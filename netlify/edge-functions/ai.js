@@ -18,7 +18,7 @@ export default async (req) => {
       model: env('ANTHROPIC_MODEL') || 'claude-sonnet-5-5',
       max_tokens: maxTokens, stream: true, system,
       // Keep the whole token budget for the written answer (no hidden reasoning blocks).
-      thinking: { type: 'disabled' },
+      thinking: { type: 'between_tools' }, // this model's way of saying "no thinking before responding"
       messages: [{ role: 'user', content: prompt }],
     }),
   });
