@@ -18,7 +18,7 @@ export default function Settings({ theme, flip }) {
     try { await api('/api/userdata'); out.store = 'OK'; } catch (e) { out.store = `Failed: ${e.message}`; }
     try {
       const r = await fetch('/api/ai', { method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ system: 'Reply with OK.', prompt: 'Say OK', maxTokens: 5 }) });
-      out.ai = r.ok ? `OK — ${(await r.text()).trim()}` : `Failed: ${(await r.json().catch(() => ({}))).error || r.status}`;
+      out.ai = r.ok && (await r.text()).includes("content_block") ? "OK — Claude is responding" : `Failed: ${(await r.json().catch(() => ({}))).error || r.status}`;
     } catch (e) { out.ai = `Failed: ${e.message}`; }
     setChecks(out); setBusy(false);
   };

@@ -29,7 +29,7 @@ export function devApi() {
       }
       const routes = [
         [/^\/api\/fmp\//, '/netlify/functions/fmp.mjs'],
-        [/^\/api\/ai$/, '/netlify/functions/ai.mjs'],
+        [/^\/api\/ai$/, '/netlify/edge-functions/ai.js'],
         [/^\/api\/userdata$/, '/netlify/functions/userdata.mjs'],
         [/^\/api\/briefing$/, '/netlify/functions/briefing.mjs'],
       ];

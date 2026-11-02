@@ -12,13 +12,22 @@ export async function streamAI({ system, prompt, maxTokens = 4000 }, onText) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e.error || `AI request failed (${res.status})`);
   }
+  // The server relays Anthropic's event stream; pull the text out of it here.
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let full = '';
+  let full = '', buf = '';
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    full += dec.decode(value, { stream: true });
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      let evt; try { evt = JSON.parse(line.slice(5)); } catch { continue; }
+      if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') full += evt.delta.text;
+      else if (evt.type === 'error') throw new Error(`AI error: ${evt.error?.message || 'unknown'}`);
+    }
     onText(full);
   }
   return full;
