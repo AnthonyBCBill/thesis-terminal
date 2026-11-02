@@ -54,7 +54,7 @@ export default function Dashboard() {
           <div className="stats">
             <div className="stat"><div className="l">Companies reporting today</div><div className="v">{d.todayCount}</div><div className="s">US listings</div></div>
             <div className="stat"><div className="l">Your watchlist today</div><div className="v">{watchToday.length}</div><div className="s">{watchToday.map((r) => r.symbol).join(', ') || 'None'}</div></div>
-            <div className="stat"><div className="l">Watchlist next 60 days</div><div className="v">{upcoming.length}</div><div className="s">{upcoming.slice(0, 4).map((r) => r.symbol).join(', ')}</div></div>
+            <div className="stat"><div className="l">Watchlist next 90 days</div><div className="v">{upcoming.length}</div><div className="s">{upcoming.slice(0, 4).map((r) => r.symbol).join(', ')}</div></div>
             <div className="stat"><div className="l">Watchlist recent results</div><div className="v">{d.watchReported.length}</div><div className="s">{d.watchReported.filter((r) => r.epsSurprisePct > 0).length} beat EPS</div></div>
           </div>
 
@@ -76,7 +76,7 @@ export default function Dashboard() {
                     <b className="mono" style={{ width: 60 }}>{r.symbol}</b>
                     {r.hasDate
                       ? <span className={r.date === todayIso ? 'chip blue' : 'muted'}>{r.date === todayIso ? 'TODAY' : dayName(r.date)}</span>
-                      : <span className="sub">No date in next 60 days</span>}
+                      : <span className="sub">No date in next 90 days</span>}
                     <span className="spacer" />{r.hasDate && <span className="sub">EPS est {num(r.epsEstimated)}</span>}
                   </Link>
                 ))}

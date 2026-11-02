@@ -4,7 +4,7 @@ import { fmp } from './api.js';
 
 const iso = (d) => d.toISOString().slice(0, 10);
 
-export async function loadUpcoming(days = 60) {
+export async function loadUpcoming(days = 90) {
   const from = iso(new Date());
   const to = iso(new Date(Date.now() + days * 864e5));
   try {

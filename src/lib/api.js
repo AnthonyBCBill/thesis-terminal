@@ -26,11 +26,11 @@ function countRequest() {
   try { localStorage.setItem('thesis:usage', JSON.stringify({ d: today(), n: usageToday() + 1 })); } catch { /* ignore */ }
 }
 // Endpoints your plan doesn't include are remembered for a week so we stop spending requests on them.
-const NA_KEY = 'thesis:na2'; // v2: the first version mis-flagged core endpoints
+const NA_KEY = 'thesis:na3'; // keyed by endpoint + ticker (free plans restrict some tickers, not whole endpoints)
 const naMap = () => { try { return JSON.parse(localStorage.getItem(NA_KEY)) || {}; } catch { return {}; } };
 const isUnavailable = (ep) => { const t = naMap()[ep]; return t && Date.now() - t < 7 * 864e5; };
 function markUnavailable(ep) { const m = naMap(); m[ep] = Date.now(); localStorage.setItem(NA_KEY, JSON.stringify(m)); }
-export const unavailableList = () => Object.keys(naMap()).filter(isUnavailable);
+export const unavailableList = () => [...new Set(Object.keys(naMap()).filter(isUnavailable).map((k) => k.split(':')[0]))];
 export const resetUnavailable = () => localStorage.removeItem(NA_KEY);
 // Only an explicit "Restricted Endpoint" means the plan lacks a feature.
 const RESTRICTED = /restricted endpoint|not available under your current subscription/i;
@@ -80,7 +80,8 @@ export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
     if (c) return c;
   }
   if (inflight.has(key)) return inflight.get(key);
-  if (isUnavailable(endpoint)) throw new ApiError('Not included in your FMP plan', 402);
+  const naId = endpoint + ':' + (params.symbol || params.symbols || '*');
+  if (isUnavailable(naId)) throw new ApiError('Not included in your FMP plan', 402);
   const p = (async () => {
     countRequest();
     const res = await fetch(`/api/fmp/${endpoint}?${qs}`, { headers: { 'x-app-key': getAppKey() } });
@@ -89,12 +90,12 @@ export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
     if (res.status === 401) throw new ApiError('Locked — enter your app password in Settings', 401);
     if (!res.ok) {
       const msg = (data && (data.error || data['Error Message'] || data.message)) || `HTTP ${res.status}`;
-      handlePlanMsg(endpoint, String(msg), res.status);
+      handlePlanMsg(naId, String(msg), res.status);
       throw new ApiError(String(msg), res.status);
     }
     if (data && !Array.isArray(data) && data['Error Message']) {
       const msg = data['Error Message'];
-      handlePlanMsg(endpoint, msg, 402);
+      handlePlanMsg(naId, msg, 402);
       throw new ApiError(msg, 402);
     }
     writeCache(key, data);

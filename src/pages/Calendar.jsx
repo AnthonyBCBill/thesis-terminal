@@ -57,7 +57,7 @@ export default function Calendar() {
             {we.rows.map((r) => (
               <button key={r.symbol} className="stat" style={{ textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }} onClick={() => nav(`/c/${r.symbol}`)}>
                 <div className="mono" style={{ fontWeight: 600 }}>{r.symbol}</div>
-                <div className={r.hasDate ? '' : 'sub'} style={{ fontSize: 13 }}>{r.hasDate ? new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not scheduled (60 days)'}</div>
+                <div className={r.hasDate ? '' : 'sub'} style={{ fontSize: 13 }}>{r.hasDate ? new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not scheduled (90 days)'}</div>
                 {r.hasDate && <div className="sub">EPS est {num(r.epsEstimated)}</div>}
               </button>
             ))}
