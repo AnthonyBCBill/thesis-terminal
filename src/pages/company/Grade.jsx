@@ -40,7 +40,7 @@ export default function Grade({ c, m, peerRows, avgs, peerLoading }) {
     try { transcript = await getLatestTranscript(c.symbol); } catch { /* not on plan */ }
     setStatus(`Grading ${c.symbol} on ${m.lastReport ? `${m.lastReport.label} earnings (${m.lastReport.date})` : 'latest data'}…`);
     try {
-      const text = await streamAI({ system: SYSTEM, prompt: gradePrompt(c, peerRows, avgs, transcript?.content), maxTokens: 6000 }, setStream);
+      const text = await streamAI({ system: SYSTEM, prompt: gradePrompt(c, peerRows, avgs, transcript?.content), maxTokens: 12000 }, setStream);
       if (!parseGrade(text)) throw new Error('The AI response could not be read — please try again.');
       const meta = { basedOn: m.lastReport?.date || null, quarter: m.lastReport?.label || null, price: m.price };
       saveAI(c.symbol, 'grade', text, meta);

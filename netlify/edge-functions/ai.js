@@ -17,6 +17,8 @@ export default async (req) => {
     body: JSON.stringify({
       model: env('ANTHROPIC_MODEL') || 'claude-sonnet-5-5',
       max_tokens: maxTokens, stream: true, system,
+      // Keep the whole token budget for the written answer (no hidden reasoning blocks).
+      thinking: { type: 'disabled' },
       messages: [{ role: 'user', content: prompt }],
     }),
   });

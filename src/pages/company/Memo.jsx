@@ -20,7 +20,7 @@ export default function Memo({ c, peerRows, avgs, peerLoading }) {
     }
     setStatus(transcript ? `Writing memo using ${transcript.label} call…` : 'Writing memo…');
     try {
-      const text = await streamAI({ system: SYSTEM, prompt: memoPrompt(c, peerRows, avgs, transcript?.content), maxTokens: 8000 },
+      const text = await streamAI({ system: SYSTEM, prompt: memoPrompt(c, peerRows, avgs, transcript?.content), maxTokens: 12000 },
         (t) => setMemo({ text: t, at: new Date().toISOString(), transcript: transcript?.label }));
       saveAI(c.symbol, 'memo', text, { transcript: transcript?.label });
     } catch (e) { setErr(e.message); }
