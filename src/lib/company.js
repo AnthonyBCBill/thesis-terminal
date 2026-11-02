@@ -275,6 +275,34 @@ export function computeMetrics(c) {
   m.reportedCount = reported.length;
   m.nextEarnings = c.earnings.find((e) => e.date >= today && !isNum(pick(e, 'epsActual')))?.date || null;
 
+  // Most recently announced quarter, labelled with the company's own fiscal quarter.
+  const done = c.earnings.filter((e) => isNum(pick(e, 'epsActual')) && e.date <= today);
+  const lr = done.at(-1);
+  if (lr) {
+    const q = [...c.incomeQ].filter((r) => r.date <= lr.date).at(-1); // quarter that ended before the report
+    const prevYear = q ? c.incomeQ.find((r) => r.period === q.period && String(r.fiscalYear) === String(+q.fiscalYear - 1)) : null;
+    const act = pick(lr, 'epsActual'), est = lr.epsEstimated;
+    const pending = !!(q && (new Date(lr.date) - new Date(q.date)) / 864e5 > 75);
+    // If the newest filed statements are a quarter behind the announcement, the announced quarter is the next one.
+    const nextLabel = (r) => { const n = +String(r.period).replace('Q', ''); return n >= 4 ? `Q1 FY${+r.fiscalYear + 1}` : `Q${n + 1} FY${r.fiscalYear}`; };
+    m.lastReport = {
+      date: lr.date,
+      label: !q ? 'Latest quarter' : pending && /^Q\d$/.test(q.period) ? nextLabel(q) : `${q.period} FY${q.fiscalYear}`,
+      periodEnd: q?.date || null,
+      epsActual: act, epsEstimated: est,
+      epsSurprise: isNum(est) && est ? (act - est) / Math.abs(est) : null,
+      revActual: lr.revenueActual ?? q?.revenue, revEstimated: lr.revenueEstimated,
+      revSurprise: isNum(lr.revenueActual) && lr.revenueEstimated ? lr.revenueActual / lr.revenueEstimated - 1 : null,
+      revYoY: q && prevYear && !pending ? div(q.revenue - prevYear.revenue, prevYear.revenue) : null,
+      epsYoY: q && prevYear && !pending ? div(pick(q, 'epsDiluted', 'eps') - pick(prevYear, 'epsDiluted', 'eps'), Math.abs(pick(prevYear, 'epsDiluted', 'eps'))) : null,
+      grossMargin: q && !pending ? div(q.grossProfit, q.revenue) : null,
+      opMargin: q && !pending ? div(q.operatingIncome, q.revenue) : null,
+      netMargin: q && !pending ? div(q.netIncome, q.revenue) : null,
+      // Statements are filed a few weeks after the press release; flag when the quarter isn't in the data yet.
+      statementsPending: pending,
+    };
+  }
+
   m.targetPrice = pick(c.priceTarget, 'targetConsensus', 'targetMedian');
   m.upside = m.targetPrice && m.price ? m.targetPrice / m.price - 1 : null;
   return m;
@@ -346,6 +374,7 @@ export function peerRow(c) {
   const m = c.m;
   return {
     symbol: c.symbol, name: m.name, marketCap: m.marketCap, price: m.price,
+    covered: c.incomeA.length > 0 || c.incomeQ.length > 0,
     trailingPE: m.trailingPE, forwardPE: m.forwardPE, forwardPE2: m.forwardPE2, peg: m.peg,
     evEbitda: m.evEbitda, ps: m.ps, pfcf: m.pfcf, fcfYield: m.fcfYield,
     gross: m.margins.gross, operating: m.margins.operating, net: m.margins.net, fcfMargin: m.margins.fcf,

@@ -18,9 +18,11 @@ import Management from './company/Management.jsx';
 import Earnings from './company/Earnings.jsx';
 import Memo from './company/Memo.jsx';
 import Notes from './company/Notes.jsx';
+import Grade from './company/Grade.jsx';
 
 const TABS = [
   { id: 'overview', label: 'Overview & Checklist' },
+  { id: 'grade', label: 'AI Grade' },
   { id: 'valuation', label: 'Valuation & Growth' },
   { id: 'financials', label: 'Financials' },
   { id: 'margins', label: 'Margins' },
@@ -45,7 +47,7 @@ export default function Company() {
   const [peerLoading, setPeerLoading] = useState(false);
   const [peersWanted, setPeersWanted] = useState(false);
   // Economy mode: competitors (≈6 requests each) load only on tabs that need them.
-  const PEER_TABS = ['valuation', 'margins', 'competition', 'memo', 'debt'];
+  const PEER_TABS = ['valuation', 'margins', 'competition', 'memo', 'debt', 'grade'];
   const wantPeers = !isEco() || peersWanted || PEER_TABS.includes(tab);
   const maxPeers = isEco() ? 5 : 10;
 
@@ -90,7 +92,7 @@ export default function Company() {
             <span className="chip mono">{symbol}</span>
             {c.profile.exchange && <span className="sub">{c.profile.exchange}</span>}
           </div>
-          <div className="sub">{[m.sector, m.industry].filter(Boolean).join(' · ')}{m.nextEarnings && <> · <b style={{ color: 'var(--accent)' }}>Next earnings {m.nextEarnings}</b></>}</div>
+          <div className="sub">{[m.sector, m.industry].filter(Boolean).join(' · ')}{m.lastReport && <> · Last reported <b>{m.lastReport.label}</b> ({m.lastReport.date})</>}{m.nextEarnings && <> · <b style={{ color: 'var(--accent)' }}>Next earnings {m.nextEarnings}</b></>}</div>
         </div>
         <div className="spacer" />
         <div style={{ textAlign: 'right' }}>
@@ -110,6 +112,7 @@ export default function Company() {
       )}
       <Tabs tabs={TABS} value={tab} onChange={(t) => nav(`/c/${symbol}/${t}`)} />
       {tab === 'overview' && <Overview {...props} />}
+      {tab === 'grade' && <Grade {...props} />}
       {tab === 'valuation' && <Valuation {...props} />}
       {tab === 'financials' && <Financials {...props} />}
       {tab === 'margins' && <Margins {...props} />}

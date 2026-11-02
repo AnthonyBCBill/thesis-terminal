@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserData } from '../lib/userdata.jsx';
 import { useWatchlistEarnings } from '../lib/upcoming.js';
+import { loadAI, parseGrade } from '../lib/ai.js';
+import { GradeBadge } from './company/Grade.jsx';
 import { loadPeers, peerRow } from '../lib/company.js';
 import { Card, DataTable, Loading } from '../components/ui.jsx';
 import TickerSearch from '../components/TickerSearch.jsx';
@@ -23,6 +25,7 @@ export default function Watchlist() {
     ...PEER_TABLE_COLS.slice(0, 2),
     { key: 'price', label: 'Price', fmt: price },
     { key: 'change', label: 'Day', fmt: (v) => pctRaw(v, 2), cls: tone },
+    { key: 'grade', label: 'AI grade', nosort: true, get: (r) => parseGrade(loadAI(r.symbol, 'grade')?.text)?.overall || null, fmt: (v) => <GradeBadge grade={v} size={28} /> },
     { key: 'next', label: 'Next earnings', get: (r) => we.map[r.symbol]?.date || null, fmt: (v) => v || '—' },
     ...PEER_TABLE_COLS.slice(2),
     { key: 'rm', label: '', nosort: true, fmt: (_, r) => <button className="btn sm" onClick={(e) => { e.stopPropagation(); toggleWatch(r.symbol); }}>Remove</button> },

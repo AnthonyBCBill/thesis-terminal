@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useUserData } from '../lib/userdata.jsx';
-import { useWatchlistEarnings } from '../lib/upcoming.js';
+import { useWatchlistEarnings, surprise } from '../lib/upcoming.js';
 import { Card, DataTable, Loading, Err, Icon, Spinner } from '../components/ui.jsx';
 import { money, num, price, shortDate, pctRaw, tone } from '../lib/format.js';
 
@@ -76,8 +76,10 @@ export default function Dashboard() {
                     <b className="mono" style={{ width: 60 }}>{r.symbol}</b>
                     {r.hasDate
                       ? <span className={r.date === todayIso ? 'chip blue' : 'muted'}>{r.date === todayIso ? 'TODAY' : dayName(r.date)}</span>
-                      : <span className="sub">No date in next 90 days</span>}
-                    <span className="spacer" />{r.hasDate && <span className="sub">EPS est {num(r.epsEstimated)}</span>}
+                      : <span className="sub">Next date not announced</span>}
+                    <span className="spacer" />
+                    {r.last && surprise(r.last) != null && <span className={`chip ${surprise(r.last) >= 0 ? 'pos' : 'neg'}`} title={`Reported ${r.last.date}`}>{surprise(r.last) >= 0 ? 'Beat' : 'Missed'} {shortDate(r.last.date).replace(/, \d{4}$/, '')}</span>}
+                    {r.hasDate && <span className="sub">EPS est {num(r.epsEstimated)}</span>}
                   </Link>
                 ))}
               </Card>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fmp } from '../lib/api.js';
 import { useUserData } from '../lib/userdata.jsx';
-import { useWatchlistEarnings } from '../lib/upcoming.js';
+import { useWatchlistEarnings, surprise } from '../lib/upcoming.js';
 import { Card, DataTable, Loading, Err, Seg } from '../components/ui.jsx';
 import { exportRows } from '../lib/excel.js';
 import { money, num, pctRaw, tone } from '../lib/format.js';
@@ -57,8 +57,13 @@ export default function Calendar() {
             {we.rows.map((r) => (
               <button key={r.symbol} className="stat" style={{ textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }} onClick={() => nav(`/c/${r.symbol}`)}>
                 <div className="mono" style={{ fontWeight: 600 }}>{r.symbol}</div>
-                <div className={r.hasDate ? '' : 'sub'} style={{ fontSize: 13 }}>{r.hasDate ? new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not scheduled (90 days)'}</div>
+                <div className={r.hasDate ? '' : 'sub'} style={{ fontSize: 13 }}>{r.hasDate ? new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Next date not announced yet'}</div>
                 {r.hasDate && <div className="sub">EPS est {num(r.epsEstimated)}</div>}
+                {r.last && (() => { const sp = surprise(r.last); return (
+                  <div className="sub" style={{ marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 4 }}>
+                    Reported {new Date(r.last.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}: EPS {num(r.last.epsActual)}{' '}
+                    {sp != null && <span className={sp >= 0 ? 'pos' : 'neg'}>{sp >= 0 ? 'beat' : 'miss'} {(sp * 100).toFixed(1)}%</span>}
+                  </div>); })()}
               </button>
             ))}
           </div>

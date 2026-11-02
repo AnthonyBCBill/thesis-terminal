@@ -133,3 +133,77 @@ ${rows.map((r) => `${r.symbol} ${r.name}: price ${num(r.price)}, mkt cap ${money
 }
 
 export { SYSTEM };
+
+// ---------------- AI Grade ----------------
+export const GRADE_SCALE = ['S', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'];
+
+export const CRITERIA = [
+  ['Valuation', ['Understand the valuation', 'Trailing P/E of the company', 'Forward P/E of the company', 'Trailing and forward P/E of all their peers']],
+  ['Industry & competition', ['Understand the industry', 'Understand the competition', "What are the competitors' margins", 'Industry average margins', 'Do they have a moat and what is the moat', 'How long margins have held and whether they can be sustained']],
+  ['Products & segments', ["What products they have and why they're better", 'Best selling products/services', 'Where is most of the product/service growth', 'Why is that category growing', '% of revenue from each product or service', 'Which segment is most likely to grow and shrink', 'Is the shrinking segment a danger to the business', 'Are margins higher on the growing or shrinking segment']],
+  ['Balance sheet & cash flow', ['Debt profile', 'Ability to service the debt', 'Cash flow', 'Total debt', 'Total cash', 'Financing obligations', 'Net, gross and operating margins']],
+  ['Management & go-to-market', ['Market fit', 'Talent on the management team', 'Experience of the management team', 'Marketing budget and strategy']],
+];
+
+function quartersTable(c) {
+  return c.incomeQ.slice(-8).map((q) => `  ${q.period} FY${q.fiscalYear} (ended ${q.date}): revenue ${money(q.revenue)}, gross ${pct(q.revenue ? q.grossProfit / q.revenue : null)}, operating ${pct(q.revenue ? q.operatingIncome / q.revenue : null)}, net ${pct(q.revenue ? q.netIncome / q.revenue : null)}, EPS ${num(q.epsDiluted ?? q.eps)}`).join('\n');
+}
+
+export function gradePrompt(c, peers, avgs, transcript) {
+  const m = c.m, r = m.lastReport;
+  const latest = r
+    ? `MOST RECENT EARNINGS (the primary input for this grade): ${r.label}, announced ${r.date}. EPS ${num(r.epsActual)} vs estimate ${num(r.epsEstimated)} (surprise ${pct(r.epsSurprise)}); revenue ${money(r.revActual)} vs estimate ${money(r.revEstimated)} (surprise ${pct(r.revSurprise)}); revenue YoY ${pct(r.revYoY)}, EPS YoY ${pct(r.epsYoY)}; quarter margins gross ${pct(r.grossMargin)} / operating ${pct(r.opMargin)} / net ${pct(r.netMargin)}.${r.statementsPending ? ' Full statements for this quarter are not yet in the data; use the reported EPS/revenue and your knowledge of the release.' : ''}`
+    : 'MOST RECENT EARNINGS: not available in the data — use the latest quarter in the table and your own knowledge of the latest report, and say so.';
+  const recentEarnings = c.earnings.filter((e) => e.epsActual != null).slice(-6).map((e) => `  ${e.date}: EPS ${num(e.epsActual)} vs est ${num(e.epsEstimated)}; revenue ${money(e.revenueActual)} vs est ${money(e.revenueEstimated)}`).join('\n');
+  const items = CRITERIA.flatMap(([, list]) => list);
+  return `Grade ${c.symbol} for a long-term investor. Base the grade primarily on the MOST RECENT EARNINGS and the trend in the latest quarters, together with the full data pack.
+
+OVERALL GRADE SCALE (growth-adjusted valuation):
+S  = extremely undervalued
+A+ / A / A- = very undervalued
+B+ / B / B- = somewhat undervalued
+C+ / C / C- = properly valued (C+ leans cheap, C- leans expensive)
+D+ / D / D- = overvalued (D- = badly overvalued)
+F  = nearing bankruptcy / serious financial distress (use ONLY for solvency risk: can't service debt, burning cash with little runway, Altman Z deep in distress zone). Distress overrides price.
+
+GROWTH ADJUSTMENT — this is essential: do NOT grade on headline P/E alone. A company like Tesla or Palantir can look expensive on trailing P/E yet justify it through revenue/EPS growth, margin expansion, a large addressable market, optionality and moat. Credit growth explicitly: compare forward P/E with EPS growth (PEG), growth durability, reinvestment runway, and margin trajectory. Conversely, a low P/E on a shrinking business is not automatically cheap. State the growth-adjusted reasoning in "growthAdjustment".
+
+ALSO grade each of the investor's checklist items. For each item give a letter from the same +/- scale but meaning QUALITY / attractiveness for an investor (S exceptional ... C average ... F very poor), and a one-to-two sentence, specific, number-backed finding. Where data is missing, use your own knowledge and say "(from general knowledge)". The items, in this exact order:
+${items.map((x, i) => `${i + 1}. ${x}`).join('\n')}
+
+Respond with ONLY a JSON object, no markdown fences, exactly in this shape:
+{
+  "overall": "B+",
+  "label": "Somewhat undervalued",
+  "score": 72,
+  "oneLiner": "one sentence verdict",
+  "summary": "3-5 sentence explanation",
+  "growthAdjustment": "2-4 sentences on how growth changes the valuation call",
+  "latestEarnings": { "quarter": "${r ? r.label : ''}", "date": "${r ? r.date : ''}", "verdict": "beat/miss/in-line and what it means", "highlights": ["...", "..."] },
+  "fairValue": { "low": 0, "mid": 0, "high": 0, "method": "how you estimated it" },
+  "criteria": [ { "item": "Understand the valuation", "grade": "B", "finding": "..." } ],
+  "bull": ["...", "..."],
+  "bear": ["...", "..."],
+  "whatWouldChangeTheGrade": ["...", "..."]
+}
+"score" is 0-100 where 100 = S and 0 = F. fairValue numbers are per-share prices (current price ${num(m.price)}).
+
+${latest}
+
+RECENT QUARTERS:
+${quartersTable(c)}
+
+EARNINGS HISTORY (actual vs estimate):
+${recentEarnings}
+
+DATA PACK:
+${dataPack(c, peers, avgs)}
+${transcript ? `\nLATEST EARNINGS CALL TRANSCRIPT (excerpt):\n${transcript.slice(0, 50000)}` : ''}`;
+}
+
+export function parseGrade(text) {
+  if (!text) return null;
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(text.slice(a, b + 1)); } catch { return null; }
+}

@@ -14,6 +14,11 @@ export function devApi() {
             const path = u.pathname.replace('/stable/', '');
             return new Response(JSON.stringify(mockFmp(path, Object.fromEntries(u.searchParams))), { status: 200 });
           }
+          if (u.hostname === 'api.anthropic.com' && String(opts?.body || '').includes('GROWTH ADJUSTMENT')) {
+            const g = { overall: 'B+', label: 'Somewhat undervalued', score: 71, oneLiner: 'Sample: quality compounder trading slightly below growth-adjusted value.', summary: 'Sample summary (dev mock).', growthAdjustment: 'Sample growth adjustment.', latestEarnings: { quarter: 'Q3 FY2026', date: '2026-10-30', verdict: 'Beat on EPS and revenue', highlights: ['Cloud +25%', 'Margins up 120bp'] }, fairValue: { low: 380, mid: 470, high: 560, method: 'Forward P/E band x FY+1 EPS' }, criteria: [{ item: 'Understand the valuation', grade: 'B', finding: 'Forward P/E 19x vs peers 24x.' }, { item: 'Debt profile', grade: 'A', finding: 'Net cash.' }, { item: 'Do they have a moat and what is the moat', grade: 'A-', finding: 'Switching costs.' }], bull: ['a', 'b'], bear: ['c'], whatWouldChangeTheGrade: ['d'] };
+            const sse = `data: {"type":"content_block_delta","delta":{"type":"text_delta","text":${JSON.stringify(JSON.stringify(g))}}}\n\n`;
+            return new Response(sse, { status: 200 });
+          }
           if (u.hostname === 'api.anthropic.com') {
             const md = '## 1. Valuation\\nSample AI output (dev mock).\\n\\n| Factor | Score |\\n|---|---|\\n| Moat | 8 |\\n\\n- **Bull:** strong cloud growth\\n- **Bear:** device decline';
             const sse = `data: {"type":"content_block_delta","delta":{"type":"text_delta","text":${JSON.stringify(md.replace(/\\n/g, '\n'))}}}\n\n`;

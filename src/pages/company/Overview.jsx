@@ -3,6 +3,7 @@ import { Card, Stat } from '../../components/ui.jsx';
 import { PriceChart } from '../../components/charts.jsx';
 import { money, pct, mult, num, price, isNum, signPct } from '../../lib/format.js';
 import { loadAI } from '../../lib/ai.js';
+import { LatestReport } from './Earnings.jsx';
 
 const RANGES = [['6M', 182], ['1Y', 365], ['3Y', 1095], ['5Y', 1830]];
 
@@ -90,6 +91,7 @@ export default function Overview(props) {
         </Card>
       </div>
 
+      <LatestReport m={m} compact />
       <div className="stats">
         <Stat label="Trailing P/E" value={mult(m.trailingPE)} sub={`5y avg ${mult(m.pe5yAvg)}`} />
         <Stat label={`Forward P/E (FY${m.estNext?.year || ''})`} value={mult(m.forwardPE)} sub={`FY+2 ${mult(m.forwardPE2)}`} />

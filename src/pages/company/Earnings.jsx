@@ -15,6 +15,24 @@ export async function getLatestTranscript(symbol) {
   return row ? { ...row, label: `Q${d.quarter} FY${d.fiscalYear ?? d.year}` } : null;
 }
 
+export function LatestReport({ m, compact }) {
+  const r = m.lastReport;
+  if (!r) return null;
+  const beat = (v) => (v == null ? null : v >= 0 ? <span className="chip pos">Beat {pctRaw(v * 100)}</span> : <span className="chip neg">Missed {pctRaw(v * 100)}</span>);
+  return (
+    <Card title={`Latest earnings: ${r.label}`} sub={`Announced ${shortDate(r.date)}${m.nextEarnings ? ` · next report ${shortDate(m.nextEarnings)}` : ''}`}>
+      <div className="stats">
+        <div className="stat"><div className="l">EPS (actual vs est.)</div><div className="v">{num(r.epsActual)}</div><div className="s">est {num(r.epsEstimated)} {beat(r.epsSurprise)}</div></div>
+        <div className="stat"><div className="l">Revenue (actual vs est.)</div><div className="v">{money(r.revActual)}</div><div className="s">est {money(r.revEstimated)} {beat(r.revSurprise)}</div></div>
+        {!compact && <div className="stat"><div className="l">Revenue growth (YoY)</div><div className={`v ${r.revYoY > 0 ? 'pos' : r.revYoY < 0 ? 'neg' : ''}`}>{r.revYoY == null ? '—' : pctRaw(r.revYoY * 100)}</div><div className="s">vs same quarter last year</div></div>}
+        {!compact && <div className="stat"><div className="l">EPS growth (YoY)</div><div className={`v ${r.epsYoY > 0 ? 'pos' : r.epsYoY < 0 ? 'neg' : ''}`}>{r.epsYoY == null ? '—' : pctRaw(r.epsYoY * 100)}</div></div>}
+        {!compact && <div className="stat"><div className="l">Gross / Op / Net margin</div><div className="v" style={{ fontSize: 15 }}>{r.grossMargin == null ? '—' : `${pctRaw(r.grossMargin * 100, 0)} / ${pctRaw(r.opMargin * 100, 0)} / ${pctRaw(r.netMargin * 100, 0)}`}</div><div className="s">that quarter</div></div>}
+      </div>
+      {r.statementsPending && <div className="sub" style={{ marginTop: 8 }}>The full financial statements for {r.label} haven't been filed into the data feed yet. Growth and margins fill in once they are (usually within a few weeks of the announcement).</div>}
+    </Card>
+  );
+}
+
 export default function Earnings({ c, m }) {
   const [dates, setDates] = useState(null);
   const [dateErr, setDateErr] = useState('');
@@ -75,6 +93,7 @@ export default function Earnings({ c, m }) {
 
   return (
     <div className="grid" style={{ gap: 16 }}>
+      <LatestReport m={m} />
       <div className="grid g2">
         <Card title="EPS: actual vs estimate" sub={`Beat ${m.beats} of last ${m.reportedCount} quarters`}>
           <MetricChart data={[...hist].reverse().filter((h) => isNum(h.act)).slice(-12)} x="date" series={[{ key: 'est', name: 'Estimate', type: 'bar' }, { key: 'act', name: 'Actual', type: 'bar' }]} kind="price" />

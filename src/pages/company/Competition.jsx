@@ -11,7 +11,7 @@ const posneg = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
 
 export const PEER_TABLE_COLS = [
   { key: 'symbol', label: 'Ticker', fmt: (v, r) => <b className="mono">{v}</b> },
-  { key: 'name', label: 'Company', txt: true, fmt: (v) => <span style={{ maxWidth: 160, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>{v}</span> },
+  { key: 'name', label: 'Company', txt: true, fmt: (v, r) => <span style={{ maxWidth: 170, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom' }}>{v}{r.covered === false && <span className="chip warn" style={{ marginLeft: 6 }}>not on your FMP plan</span>}</span> },
   { key: 'marketCap', label: 'Mkt cap', fmt: money },
   { key: 'trailingPE', label: 'P/E TTM', fmt: mult }, { key: 'forwardPE', label: 'P/E fwd', fmt: mult }, { key: 'forwardPE2', label: 'P/E FY+2', fmt: mult },
   { key: 'peg', label: 'PEG', fmt: (v) => num(v) }, { key: 'evEbitda', label: 'EV/EBITDA', fmt: mult }, { key: 'ps', label: 'P/S', fmt: mult },
@@ -25,6 +25,7 @@ export default function Competition({ c, m, peerRows, avgs, peerLoading, peerLis
   const nav = useNavigate();
   const self = peerRow(c);
   const rows = [self, ...peerRows];
+  const uncovered = peerRows.filter((r) => r.covered === false);
   const foot = avgs ? [{ symbol: 'AVG', name: 'Peer average', ...avgs.avg }, { symbol: 'MED', name: 'Peer median', ...avgs.med }] : [];
   const add = (s) => { if (s !== c.symbol && !peerList.includes(s)) setPeers(c.symbol, [...peerList, s]); };
   const remove = (s) => setPeers(c.symbol, peerList.filter((x) => x !== s));
@@ -40,6 +41,13 @@ export default function Competition({ c, m, peerRows, avgs, peerLoading, peerLis
         <div style={{ maxWidth: 360 }}><TickerSearch onPick={add} placeholder="Add a competitor…" /></div>
       </Card>
 
+      {uncovered.length > 0 && (
+        <div className="note-box">
+          <b>{uncovered.map((r) => r.symbol).join(', ')}</b> {uncovered.length === 1 ? "isn't" : "aren't"} covered by FMP's free plan, so only price and market cap show for {uncovered.length === 1 ? 'it' : 'them'}.
+          FMP's free plan covers a limited list of tickers; the Starter plan (about $22/month billed annually) covers every US stock.
+          You can also swap in competitors that are covered using "Add a competitor" above.
+        </div>
+      )}
       <Card title="Competitive comparison (TTM & consensus)" right={
         <button className="btn sm" onClick={() => exportRows([...rows, ...foot], PEER_COLS, `${c.symbol}_peers`)}>Export to Excel</button>}>
         {peerLoading && !peerRows.length ? <Loading label="Loading peers…" /> :
