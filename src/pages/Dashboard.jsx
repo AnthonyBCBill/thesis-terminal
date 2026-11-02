@@ -20,8 +20,6 @@ export default function Dashboard() {
     setBusy('');
   };
   useEffect(() => { load(false); }, []);
-  // Rebuild when the watchlist changes so "your stocks" sections stay accurate.
-  useEffect(() => { if (d) load(true); }, [ud.watchlist.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendTest = async () => {
     setBusy('send');

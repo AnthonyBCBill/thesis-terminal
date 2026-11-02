@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getAppKey, setAppKey } from './lib/api.js';
 import TickerSearch from './components/TickerSearch.jsx';
 import { Icon } from './components/ui.jsx';
 import { useUserData } from './lib/userdata.jsx';
@@ -10,7 +11,39 @@ import Compare from './pages/Compare.jsx';
 import Settings from './pages/Settings.jsx';
 import Watchlist from './pages/Watchlist.jsx';
 
+// Private lock screen: shown until the device has the APP_PASSWORD set in Netlify.
+function Lock({ onOk }) {
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState('');
+  const go = async (e) => {
+    e.preventDefault();
+    const r = await fetch('/api/userdata', { headers: { 'x-app-key': pw } });
+    if (r.ok) { setAppKey(pw); onOk(); window.location.reload(); } else setErr('Wrong password');
+  };
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20 }}>
+      <form onSubmit={go} className="card card-b" style={{ width: 340, display: 'grid', gap: 12 }}>
+        <div className="brand" style={{ padding: 0 }}><div className="brand-mark">T</div>Thesis</div>
+        <div className="muted">This app is private. Enter your password.</div>
+        <input type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password" />
+        {err && <div className="err">{err}</div>}
+        <button className="btn primary" style={{ justifyContent: 'center' }}>Unlock</button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
+  const [locked, setLocked] = useState(null);
+  useEffect(() => {
+    fetch('/api/userdata', { headers: { 'x-app-key': getAppKey() } }).then((r) => setLocked(r.status === 401)).catch(() => setLocked(false));
+  }, []);
+  if (locked === null) return null;
+  if (locked) return <Lock onOk={() => setLocked(false)} />;
+  return <Shell />;
+}
+
+function Shell() {
   const { data } = useUserData();
   const [theme, setTheme] = useState(document.documentElement.dataset.theme);
   const flip = () => {

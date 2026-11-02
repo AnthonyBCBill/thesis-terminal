@@ -27,12 +27,12 @@ function buildChecklist({ c, m, avgs, peerRows }) {
       { q: 'Understand the valuation', s: cmp(m.forwardPE, a.forwardPE), a: `Trailing P/E ${mult(m.trailingPE)}, forward ${mult(m.forwardPE)}, PEG ${num(m.peg)}, EV/EBITDA ${mult(m.evEbitda)}. 5-yr avg P/E ${mult(m.pe5yAvg)}.`, tab: 'valuation' },
       { q: 'Trailing P/E of the company', s: cmp(m.trailingPE, a.trailingPE), a: `${mult(m.trailingPE)} vs peer avg ${mult(a.trailingPE)}`, tab: 'valuation' },
       { q: 'Forward P/E of the company', s: cmp(m.forwardPE, a.forwardPE), a: `${mult(m.forwardPE)} (FY${m.estNext?.year || '?'}) · ${mult(m.forwardPE2)} (FY${m.estNext2?.year || '?'}) vs peer avg ${mult(a.forwardPE)}`, tab: 'valuation' },
-      { q: 'Trailing & forward P/E of all peers', s: hasPeers ? 'b' : '', a: hasPeers ? peerRows.slice(0, 6).map((p) => `${p.symbol} ${mult(p.trailingPE)}/${mult(p.forwardPE)}`).join(' · ') : 'Loading peers…', tab: 'competition' },
+      { q: 'Trailing & forward P/E of all peers', s: hasPeers ? 'b' : '', a: hasPeers ? peerRows.slice(0, 6).map((p) => `${p.symbol} ${mult(p.trailingPE)}/${mult(p.forwardPE)}`).join(' · ') : 'Click "Load competitor comparisons" (or open the Competition tab).', tab: 'competition' },
       { q: 'Guidance & growth', s: m.epsGrowthNext > 0.1 ? 'g' : m.epsGrowthNext < 0 ? 'r' : 'y', a: `Consensus next FY: revenue ${signPct(m.revGrowthNext)}, EPS ${signPct(m.epsGrowthNext)}. FY+2: revenue ${signPct(m.revGrowthNext2)}, EPS ${signPct(m.epsGrowthNext2)}. Management guidance is in the transcript analysis.`, tab: 'earnings' },
     ] },
     { group: 'Industry, competition & moat', items: [
       { q: 'Understand the industry', ...ai(`${m.industry || 'Industry'} (${m.sector || ''})`), tab: 'memo' },
-      { q: 'Understand the competition', s: hasPeers ? 'b' : '', a: hasPeers ? `${peerRows.length} peers tracked. ${c.symbol} ranks #${opRank} of ${peerRows.length + 1} on operating margin.` : 'Loading peers…', tab: 'competition' },
+      { q: 'Understand the competition', s: hasPeers ? 'b' : '', a: hasPeers ? `${peerRows.length} peers tracked. ${c.symbol} ranks #${opRank} of ${peerRows.length + 1} on operating margin.` : 'Open the Competition tab to load competitors.', tab: 'competition' },
       { q: 'Competitors’ margins', s: cmp(m.margins.operating, a.operating, 'high'), a: `Peer avg: gross ${pct(a.gross)}, operating ${pct(a.operating)}, net ${pct(a.net)}`, tab: 'competition' },
       { q: 'Industry average margins', s: cmp(m.margins.net, a.net, 'high'), a: `Peer-group average (industry proxy): gross ${pct(a.gross)} · op ${pct(a.operating)} · net ${pct(a.net)} vs ${c.symbol} ${pct(m.margins.gross)} · ${pct(m.margins.operating)} · ${pct(m.margins.net)}`, tab: 'margins' },
       { q: 'Do they have a moat, and what is it?', s: memo ? 'b' : (m.durability.gross.verdict.startsWith('Very') && m.roic > 0.15 ? 'g' : ''), a: `Signals: ROIC ${pct(m.roic)}, gross margin ${m.durability.gross.verdict.toLowerCase()}. ${memo ? 'Moat type in AI memo.' : 'Generate the AI memo for moat type and evidence.'}`, tab: 'memo' },
@@ -65,7 +65,7 @@ function buildChecklist({ c, m, avgs, peerRows }) {
 }
 
 export default function Overview(props) {
-  const { c, m, go } = props;
+  const { c, m, go, peersPending, loadPeersNow } = props;
   const [range, setRange] = useState(365);
   const since = new Date(Date.now() - range * 864e5).toISOString().slice(0, 10);
   const pr = c.prices.filter((p) => p.date >= since);
@@ -101,7 +101,8 @@ export default function Overview(props) {
         <Stat label="Net debt" value={money(m.netDebt)} sub={m.netDebt > 0 ? `${m.debtRating.grade} · ${mult(m.netDebtToEbitda)} EBITDA` : "Net cash position"} />
       </div>
 
-      <Card title="Decision checklist" sub="Your research framework, answered from the data. Click any row to dig in. Blue = see AI memo / detail tab.">
+      <Card title="Decision checklist" sub="Your research framework, answered from the data. Click any row to dig in. Blue = see AI memo / detail tab."
+        right={peersPending ? <button className="btn sm" onClick={loadPeersNow} title="Uses about 6 data requests per competitor">Load competitor comparisons</button> : null}>
         <div className="grid g2" style={{ gap: '4px 28px' }}>
           {groups.map((g) => (
             <div key={g.group}>

@@ -38,7 +38,8 @@ export async function buildDigest() {
   // Quotes + news for the watchlist (kept small to respect API limits).
   const quotes = [];
   const news = [];
-  for (const sym of watch.slice(0, 25)) {
+  // Kept small for free FMP plans (one request per ticker).
+  for (const sym of watch.slice(0, +(env('DIGEST_MAX_QUOTES') || 10))) {
     try {
       const q = await fmp('quote', { symbol: sym });
       if (Array.isArray(q.data) && q.data[0]) quotes.push(q.data[0]);

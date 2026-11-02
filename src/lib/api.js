@@ -2,8 +2,10 @@
 
 const CACHE_PREFIX = 'thesis:c:';
 const TTL = {
-  default: 6 * 3600e3, // statements, profiles, segments
-  quote: 60e3,
+  default: 24 * 3600e3, // statements, segments, estimates — refresh daily (saves free-plan requests)
+  profile: 30 * 60e3, // price lives here
+  quote: 5 * 60e3,
+  'historical-price-eod/light': 12 * 3600e3,
   'earnings-calendar': 30 * 60e3,
   'news/stock': 15 * 60e3,
   'news/press-releases': 30 * 60e3,
@@ -12,6 +14,25 @@ const TTL = {
 
 export const getAppKey = () => localStorage.getItem('thesis:appkey') || '';
 export const setAppKey = (k) => localStorage.setItem('thesis:appkey', k);
+
+// ---- Free-plan helpers ----
+export const isEco = () => localStorage.getItem('thesis:eco') !== '0'; // economy mode on by default
+export const setEco = (on) => localStorage.setItem('thesis:eco', on ? '1' : '0');
+const today = () => new Date().toISOString().slice(0, 10);
+export function usageToday() {
+  try { const u = JSON.parse(localStorage.getItem('thesis:usage')); return u?.d === today() ? u.n : 0; } catch { return 0; }
+}
+function countRequest() {
+  try { localStorage.setItem('thesis:usage', JSON.stringify({ d: today(), n: usageToday() + 1 })); } catch { /* ignore */ }
+}
+// Endpoints your plan doesn't include are remembered for a week so we stop spending requests on them.
+const NA_KEY = 'thesis:na';
+const naMap = () => { try { return JSON.parse(localStorage.getItem(NA_KEY)) || {}; } catch { return {}; } };
+const isUnavailable = (ep) => { const t = naMap()[ep]; return t && Date.now() - t < 7 * 864e5; };
+function markUnavailable(ep) { const m = naMap(); m[ep] = Date.now(); localStorage.setItem(NA_KEY, JSON.stringify(m)); }
+export const unavailableList = () => Object.keys(naMap()).filter(isUnavailable);
+export const resetUnavailable = () => localStorage.removeItem(NA_KEY);
+const PLAN_ERR = /premium|subscription|upgrade|plan|not available|special endpoint|restricted/i;
 
 export class ApiError extends Error {
   constructor(msg, status) { super(msg); this.status = status; }
@@ -45,16 +66,24 @@ export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
     if (c) return c;
   }
   if (inflight.has(key)) return inflight.get(key);
+  if (isUnavailable(endpoint)) throw new ApiError('Not included in your FMP plan', 402);
   const p = (async () => {
+    countRequest();
     const res = await fetch(`/api/fmp/${endpoint}?${qs}`, { headers: { 'x-app-key': getAppKey() } });
     let data;
     try { data = await res.json(); } catch { data = null; }
     if (res.status === 401) throw new ApiError('Locked — enter your app password in Settings', 401);
     if (!res.ok) {
       const msg = (data && (data.error || data['Error Message'] || data.message)) || `HTTP ${res.status}`;
+      if ((res.status === 402 || res.status === 403) && PLAN_ERR.test(String(msg)) && !('limit' in params && +params.limit > 5)) markUnavailable(endpoint);
+      if (res.status === 429 || /limit reach/i.test(String(msg))) throw new ApiError('Daily FMP request limit reached — data resumes tomorrow (or upgrade your FMP plan).', 429);
       throw new ApiError(String(msg), res.status);
     }
-    if (data && !Array.isArray(data) && data['Error Message']) throw new ApiError(data['Error Message'], 402);
+    if (data && !Array.isArray(data) && data['Error Message']) {
+      const msg = data['Error Message'];
+      if (PLAN_ERR.test(msg)) markUnavailable(endpoint);
+      throw new ApiError(msg, 402);
+    }
     writeCache(key, data);
     return data;
   })();
@@ -65,7 +94,13 @@ export async function fmp(endpoint, params = {}, { fresh = false } = {}) {
 // Like fmp() but never throws — returns fallback, and records the error.
 export async function fmpSafe(endpoint, params, fallback = []) {
   try { return { data: await fmp(endpoint, params), error: null }; }
-  catch (e) { return { data: fallback, error: e.message }; }
+  catch (e) {
+    // Free plans cap history; retry once with a 5-period limit.
+    if (params?.limit && +params.limit > 5 && e.status !== 429) {
+      try { return { data: await fmp(endpoint, { ...params, limit: 5 }), error: null }; } catch { /* fall through */ }
+    }
+    return { data: fallback, error: e.message };
+  }
 }
 
 export async function api(path, opts = {}) {

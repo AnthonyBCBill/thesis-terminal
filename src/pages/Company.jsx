@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { loadCompany, loadPeers, peerRow, peerAverages } from '../lib/company.js';
 import { useUserData } from '../lib/userdata.jsx';
+import { isEco } from '../lib/api.js';
 import { exportCompany } from '../lib/excel.js';
 import { money, price, signPct, tone, pctRaw } from '../lib/format.js';
 import { Tabs, Loading, Err, Icon } from '../components/ui.jsx';
@@ -42,10 +43,15 @@ export default function Company() {
   const [err, setErr] = useState('');
   const [peers, setPeers] = useState(null);
   const [peerLoading, setPeerLoading] = useState(false);
+  const [peersWanted, setPeersWanted] = useState(false);
+  // Economy mode: competitors (≈6 requests each) load only on tabs that need them.
+  const PEER_TABS = ['valuation', 'margins', 'competition', 'memo', 'debt'];
+  const wantPeers = !isEco() || peersWanted || PEER_TABS.includes(tab);
+  const maxPeers = isEco() ? 5 : 10;
 
   useEffect(() => {
     let live = true;
-    setC(null); setErr(''); setPeers(null);
+    setC(null); setErr(''); setPeers(null); setPeersWanted(false);
     loadCompany(symbol).then((d) => {
       if (!live) return;
       if (!d.profile?.symbol && !d.incomeA.length) setErr(Object.values(d.errors)[0] || `No data found for ${symbol}.`);
@@ -57,12 +63,12 @@ export default function Company() {
   const peerList = useMemo(() => (ud.peers[symbol]?.length ? ud.peers[symbol] : c?.peers || []), [ud.peers, symbol, c]);
 
   useEffect(() => {
-    if (!c) return;
+    if (!c || !wantPeers) return;
     let live = true;
     setPeerLoading(true);
-    loadPeers(peerList.slice(0, 10)).then((ps) => { if (live) { setPeers(ps); setPeerLoading(false); } });
+    loadPeers(peerList.slice(0, maxPeers)).then((ps) => { if (live) { setPeers(ps); setPeerLoading(false); } });
     return () => { live = false; };
-  }, [c, peerList.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [c, peerList.join(','), wantPeers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const peerRows = useMemo(() => (peers || []).map(peerRow), [peers]);
   const avgs = useMemo(() => (peerRows.length ? peerAverages(peerRows) : null), [peerRows]);
@@ -72,7 +78,7 @@ export default function Company() {
 
   const m = c.m;
   const watching = ud.watchlist.includes(symbol);
-  const props = { c, m, peers, peerRows, avgs, peerLoading, peerList, go: (t) => nav(`/c/${symbol}/${t}`) };
+  const props = { c, m, peers, peerRows, avgs, peerLoading: peerLoading || (wantPeers && !peers), peersPending: !wantPeers, loadPeersNow: () => setPeersWanted(true), peerList, go: (t) => nav(`/c/${symbol}/${t}`) };
 
   return (
     <div>
@@ -89,7 +95,7 @@ export default function Company() {
         <div className="spacer" />
         <div style={{ textAlign: 'right' }}>
           <div className="co-price">{price(m.price)}</div>
-          <div className={`mono ${tone(m.changePct)}`} style={{ fontSize: 13 }}>{m.changePct != null ? `${m.changePct > 0 ? '+' : ''}${pctRaw(m.changePct, 2)}` : ''} · {money(m.marketCap)} mkt cap</div>
+          <div className={`mono ${tone(m.changePct)}`} style={{ fontSize: 13 }}>{m.changePct != null ? `${m.changePct > 0 ? '+' : ''}${pctRaw(m.changePct, 2)} · ` : ''}{money(m.marketCap)} mkt cap</div>
         </div>
         <div className="row">
           <button className={`btn ${watching ? 'primary' : ''}`} onClick={() => toggleWatch(symbol)}><Icon name="star" size={14} filled={watching} />{watching ? 'Watching' : 'Watch'}</button>

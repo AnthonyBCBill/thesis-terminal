@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, Spinner } from '../components/ui.jsx';
-import { getAppKey, setAppKey, clearCache, api } from '../lib/api.js';
+import { getAppKey, setAppKey, clearCache, api, isEco, setEco, usageToday, unavailableList, resetUnavailable } from '../lib/api.js';
 import { useUserData } from '../lib/userdata.jsx';
 
 export default function Settings({ theme, flip }) {
@@ -41,6 +41,19 @@ export default function Settings({ theme, flip }) {
           <Row label="Saved data (watchlist, notes)" v={checks.store} />
           <Row label="AI analysis (Claude)" v={checks.ai} />
         </> : <div className="sub">Checks your Netlify environment variables. Sync status: {synced}.</div>}
+      </Card>
+      <Card title="Free-plan economy mode" sub="FMP's free plan allows about 250 requests a day.">
+        <div className="row" style={{ marginBottom: 10 }}>
+          <label className="row" style={{ gap: 6 }}><input type="checkbox" defaultChecked={isEco()} onChange={(e) => setEco(e.target.checked)} /> Economy mode (recommended on the free plan)</label>
+        </div>
+        <div className="md">
+          <ul>
+            <li>Requests from this device today: <b>{usageToday()}</b> of ~250</li>
+            <li>A company page costs about 17 requests; competitors load only on Valuation, Margins, Debt, Competition and Memo tabs (max 5, ~6 requests each).</li>
+            <li>Data is cached for 24 hours, so reopening a company is free.</li>
+            <li>Skipped because your plan doesn't include them: <b>{unavailableList().join(', ') || 'none yet'}</b> {unavailableList().length > 0 && <button className="btn sm" onClick={() => { resetUnavailable(); window.location.reload(); }}>Retry these (after upgrading)</button>}</li>
+          </ul>
+        </div>
       </Card>
       <Card title="Display & data">
         <div className="row">

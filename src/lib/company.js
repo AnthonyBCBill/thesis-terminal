@@ -1,5 +1,5 @@
 // Loads everything about a company and computes the metrics behind each checklist item.
-import { fmpSafe } from './api.js';
+import { fmpSafe, isEco } from './api.js';
 import { isNum } from './format.js';
 
 export const pick = (o, ...keys) => {
@@ -79,16 +79,15 @@ export async function loadCompany(symbol, { lite = false } = {}) {
   const s = symbol.toUpperCase();
   const P = { symbol: s };
   const calls = {
+    // Price, market cap and day change come from the profile — no separate quote request.
     profile: fmpSafe('profile', P),
-    quote: fmpSafe('quote', P),
-    incomeA: fmpSafe('income-statement', { ...P, period: 'annual', limit: lite ? 6 : 15 }),
+    incomeA: fmpSafe('income-statement', { ...P, period: 'annual', limit: lite ? 5 : 15 }),
     incomeQ: fmpSafe('income-statement', { ...P, period: 'quarter', limit: lite ? 4 : 16 }),
     balanceQ: fmpSafe('balance-sheet-statement', { ...P, period: 'quarter', limit: lite ? 1 : 8 }),
     cashQ: fmpSafe('cash-flow-statement', { ...P, period: 'quarter', limit: lite ? 4 : 16 }),
     estimates: fmpSafe('analyst-estimates', { ...P, period: 'annual', limit: 10 }),
-    ratiosTTM: fmpSafe('ratios-ttm', P),
-    metricsTTM: fmpSafe('key-metrics-ttm', P),
   };
+  if (!lite || !isEco()) calls.metricsTTM = fmpSafe('key-metrics-ttm', P);
   if (!lite) Object.assign(calls, {
     balanceA: fmpSafe('balance-sheet-statement', { ...P, period: 'annual', limit: 15 }),
     cashA: fmpSafe('cash-flow-statement', { ...P, period: 'annual', limit: 15 }),
@@ -112,12 +111,12 @@ export async function loadCompany(symbol, { lite = false } = {}) {
     lite,
     errors,
     profile: first(raw.profile) || {},
-    quote: first(raw.quote) || {},
+    quote: {},
     incomeA: asc(raw.incomeA), incomeQ: asc(raw.incomeQ),
     balanceA: asc(raw.balanceA), balanceQ: asc(raw.balanceQ),
     cashA: asc(raw.cashA), cashQ: asc(raw.cashQ),
     ratiosA: asc(raw.ratiosA),
-    ratiosTTM: first(raw.ratiosTTM) || {}, metricsTTM: first(raw.metricsTTM) || {},
+    metricsTTM: first(raw.metricsTTM) || {},
     scores: first(raw.scores) || {},
     estimates: normalizeEstimates(raw.estimates),
     peers: normalizePeers(raw.peersRaw, s),
@@ -142,7 +141,7 @@ export function computeMetrics(c) {
 
   m.price = pick(c.quote, 'price') ?? pick(c.profile, 'price');
   m.marketCap = pick(c.quote, 'marketCap') ?? pick(c.profile, 'marketCap', 'mktCap');
-  m.changePct = pick(c.quote, 'changePercentage', 'changesPercentage');
+  m.changePct = pick(c.quote, 'changePercentage', 'changesPercentage') ?? pick(c.profile, 'changePercentage', 'changesPercentage');
   m.name = pick(c.profile, 'companyName') || c.symbol;
   m.sector = c.profile.sector; m.industry = c.profile.industry;
 
@@ -203,7 +202,9 @@ export function computeMetrics(c) {
   m.equity = pick(lastBS, 'totalStockholdersEquity', 'totalEquity');
   m.pb = m.equity > 0 ? div(m.marketCap, m.equity) : null;
   m.roe = div(t.netIncome, m.equity);
-  m.roic = pick(c.metricsTTM, 'returnOnInvestedCapitalTTM', 'roicTTM');
+  m.roic = pick(c.metricsTTM, 'returnOnInvestedCapitalTTM', 'roicTTM')
+    ?? (isNum(t.operatingIncome) && isNum(m.equity) && isNum(m.totalDebt) && isNum(m.cash) && m.equity + m.totalDebt - m.cash > 0
+      ? (t.operatingIncome * 0.79) / (m.equity + m.totalDebt - m.cash) : null);
 
   // Debt service
   m.debtToEbitda = t.ebitda > 0 ? div(m.totalDebt, t.ebitda) : null;
@@ -332,8 +333,9 @@ export function analyzeSegments(rows, m) {
 export async function loadPeers(symbols) {
   const out = [];
   // Load in small batches to stay polite with API rate limits.
-  for (let i = 0; i < symbols.length; i += 4) {
-    const batch = await Promise.all(symbols.slice(i, i + 4).map((s) => loadCompany(s, { lite: true }).catch(() => null)));
+  const step = isEco() ? 2 : 4;
+  for (let i = 0; i < symbols.length; i += step) {
+    const batch = await Promise.all(symbols.slice(i, i + step).map((s) => loadCompany(s, { lite: true }).catch(() => null)));
     out.push(...batch.filter(Boolean));
   }
   return out;
