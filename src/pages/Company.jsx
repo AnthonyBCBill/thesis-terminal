@@ -104,6 +104,12 @@ export default function Company() {
           <button className="btn" onClick={() => exportCompany(c, peerRows, avgs)} title="Download Excel workbook"><Icon name="xls" size={14} />Excel</button>
         </div>
       </div>
+      {!c.incomeA.length && !c.incomeQ.length && Object.values(c.errors).some((e) => /not available under your current subscription/i.test(String(e))) && (
+        <div className="note-box" style={{ marginBottom: 12 }}>
+          <b>{symbol} isn't covered by FMP's free plan</b>, so only its price and market cap can load. Financials, margins, debt, cash flow, estimates and competitor numbers need FMP's Starter plan (about $22/month billed annually), which covers every US stock.
+          Large companies like AAPL, MSFT, NVDA and AMZN work on the free plan.
+        </div>
+      )}
       {Object.values(c.errors).some((e) => /limit reach/i.test(String(e))) && (
         <div className="err" style={{ marginBottom: 12 }}>You've used today's FMP data requests (free plan: 250/day). Some numbers are missing until the limit resets tomorrow — or upgrade to FMP Starter for 300 requests per minute.</div>
       )}
