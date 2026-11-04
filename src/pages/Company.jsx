@@ -118,7 +118,7 @@ export default function Company() {
       {Object.values(c.errors).some((e) => /limit reach/i.test(String(e))) && (
         <div className="err" style={{ marginBottom: 12 }}>You've used today's FMP data requests (free plan: 250/day). Some numbers are missing until the limit resets tomorrow — or upgrade to FMP Starter for 300 requests per minute.</div>
       )}
-      {Object.keys(c.errors).length > 0 && (
+      {Object.entries(c.errors).filter(([, v]) => !(c.source === 'SEC' && /current subscription|Not included in your FMP plan/i.test(String(v)))).length > 0 && (
         <details className="note-box" style={{ marginBottom: 12 }}>
           <summary>Some data couldn't be loaded ({Object.keys(c.errors).length}) — usually your FMP plan doesn't include it.</summary>
           <ul style={{ margin: '6px 0 0' }}>{Object.entries(c.errors).map(([k, v]) => <li key={k}><b>{k}</b>: {String(v).slice(0, 160)}</li>)}</ul>
