@@ -85,8 +85,8 @@ function indexFacts(facts) {
       const keep = (bucket, key, v) => { const old = bucket[key]; if (!old || f.filed > old.filed) bucket[key] = { ...v, filed: f.filed }; };
       if (f.start) {
         const d = days(f.start, f.end);
-        if (d > 340 && d < 390) keep(t.annual, f.end, { val: f.val });
-        else if (d > 75 && d < 105) keep(t.quarter, f.end, { val: f.val });
+        if (d > 340 && d < 390) keep(t.annual, f.end, { val: f.val, start: f.start });
+        else if (d > 75 && d < 105) keep(t.quarter, f.end, { val: f.val, start: f.start });
         else if (d > 160 && d < 290) keep(t.ytd, f.end, { val: f.val, start: f.start });
       } else keep(t.instant, f.end, { val: f.val });
     }
@@ -159,6 +159,22 @@ function buildRow(idx, kind, end, fyEndMonth) {
   return row;
 }
 
+// Cash-flow lines in 10-Qs are year-to-date (6 or 9 months). Turn them into single quarters:
+// Q2 = 6-month YTD - Q1, Q3 = 9-month YTD - 6-month YTD.
+function deriveFromYtd(idx) {
+  for (const t of Object.values(idx)) {
+    const ytd = Object.entries(t.ytd).sort(([a], [b]) => a.localeCompare(b));
+    for (const [end, y] of ytd) {
+      if (t.quarter[end]) continue;
+      // Prior cumulative value with the same fiscal-year start, ending ~3 months earlier.
+      const prevYtd = ytd.find(([e, v]) => v.start === y.start && days(e, end) > 75 && days(e, end) < 105);
+      const prevQ = Object.entries(t.quarter).find(([e, v]) => v.start === y.start && days(e, end) > 75 && days(e, end) < 105);
+      const prev = prevYtd?.[1] || prevQ?.[1];
+      if (prev && Number.isFinite(prev.val)) t.quarter[end] = { val: y.val - prev.val, start: null, filed: y.filed, derived: true };
+    }
+  }
+}
+
 // Q4 is rarely filed on its own: derive it as full year minus the first nine months.
 function deriveQ4(idx, annualEnds, quarterEnds) {
   const derived = {};
@@ -186,6 +202,7 @@ export async function secStatements(store, symbol) {
   const facts = await secJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
   const idx = indexFacts(facts);
   const annualEnds = periodEnds(idx, 'annual');
+  deriveFromYtd(idx);
   let quarterEnds = periodEnds(idx, 'quarter');
   deriveQ4(idx, annualEnds, quarterEnds);
   quarterEnds = periodEnds(idx, 'quarter');

@@ -134,7 +134,7 @@ export function clearCache() {
 
 // SEC fallback (free, every US filer): annual + quarterly statements. Cached a day on this device.
 export async function secStatements(symbol) {
-  const key = CACHE_PREFIX + 'sec?' + symbol;
+  const key = CACHE_PREFIX + 'sec2?' + symbol;
   const c = readCache(key, 24 * 3600e3);
   if (c) return c;
   const res = await fetch(`/api/sec?symbol=${encodeURIComponent(symbol)}`, { headers: { 'x-app-key': getAppKey() } });

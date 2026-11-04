@@ -10,7 +10,7 @@ export default async (req) => {
   const symbol = (new URL(req.url).searchParams.get('symbol') || '').toUpperCase().trim();
   if (!/^[A-Z.\-]{1,10}$/.test(symbol)) return json({ error: 'symbol required' }, 400);
   const store = getStore('thesis');
-  const key = `sec:${symbol}`;
+  const key = `sec2:${symbol}`; // bump when the parser changes
   const cached = await store.get(key, { type: 'json' });
   if (cached && Date.now() - cached._t < 24 * 3600e3) return json(cached);
   try {
