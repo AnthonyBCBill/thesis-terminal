@@ -32,6 +32,7 @@ export function devApi() {
         [/^\/api\/ai$/, '/netlify/edge-functions/ai.js'],
         [/^\/api\/userdata$/, '/netlify/functions/userdata.mjs'],
         [/^\/api\/briefing$/, '/netlify/functions/briefing.mjs'],
+        [/^\/api\/sec$/, '/netlify/functions/sec.mjs'],
       ];
       server.middlewares.use(async (req, res, next) => {
         const path = req.url.split('?')[0];

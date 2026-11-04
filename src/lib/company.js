@@ -1,5 +1,5 @@
 // Loads everything about a company and computes the metrics behind each checklist item.
-import { fmpSafe, isEco } from './api.js';
+import { fmpSafe, isEco, secStatements } from './api.js';
 import { isNum } from './format.js';
 
 export const pick = (o, ...keys) => {
@@ -107,8 +107,25 @@ export async function loadCompany(symbol, { lite = false } = {}) {
   const raw = {}; const errors = {};
   keys.forEach((k, i) => { raw[k] = results[i].data; if (results[i].error) errors[k] = results[i].error; });
 
+  // FMP's free plan blocks many tickers. Fall back to the SEC's own filings for the statements.
+  let source = 'FMP';
+  const empty = (x) => !Array.isArray(x) || !x.length;
+  if (empty(raw.incomeA) && empty(raw.incomeQ)) {
+    try {
+      const sec = await secStatements(s);
+      if (sec.annual?.length || sec.quarter?.length) {
+        raw.incomeA = raw.balanceA = raw.cashA = sec.annual || [];
+        raw.incomeQ = raw.balanceQ = raw.cashQ = sec.quarter || [];
+        for (const k of ['incomeA', 'incomeQ', 'balanceQ', 'cashQ', 'balanceA', 'cashA']) delete errors[k];
+        source = 'SEC';
+        if (!raw.profile?.length || !raw.profile[0]?.companyName) raw.profile = [{ ...(raw.profile?.[0] || {}), symbol: s, companyName: sec.name }];
+      }
+    } catch (e) { errors.sec = `SEC fallback: ${e.message}`; }
+  }
+
   const c = {
     symbol: s,
+    source,
     lite,
     errors,
     profile: first(raw.profile) || {},

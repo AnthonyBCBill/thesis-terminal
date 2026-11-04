@@ -131,3 +131,15 @@ export async function api(path, opts = {}) {
 export function clearCache() {
   Object.keys(localStorage).filter((k) => k.startsWith(CACHE_PREFIX)).forEach((k) => localStorage.removeItem(k));
 }
+
+// SEC fallback (free, every US filer): annual + quarterly statements. Cached a day on this device.
+export async function secStatements(symbol) {
+  const key = CACHE_PREFIX + 'sec?' + symbol;
+  const c = readCache(key, 24 * 3600e3);
+  if (c) return c;
+  const res = await fetch(`/api/sec?symbol=${encodeURIComponent(symbol)}`, { headers: { 'x-app-key': getAppKey() } });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || data.error) throw new Error((data && data.error) || `SEC HTTP ${res.status}`);
+  writeCache(key, data);
+  return data;
+}
